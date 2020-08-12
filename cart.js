@@ -53,7 +53,7 @@ cart.put('/:id', (req,res)=>{
 })
 
 cart.delete('/:id', (req, res)=> {
-    const reqId = request.params.id;
+    const reqId = req.params.id;
 
     let item = myCart.filter(item =>{
         return item.id === reqId;

@@ -12,4 +12,5 @@ app.use(bodyParser.urlencoded({extended: true }));
 app.get('*',(req,res)=>{
     res.json({ message: 'no sir'});
 })
+
 app.listen(port,()=> {console.log(`server listening on port ${port}`)});
