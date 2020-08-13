@@ -1,5 +1,4 @@
 const express = require('express');
-const { request } = require('express');
 const cart = express.Router();
 
 let myCart = [
