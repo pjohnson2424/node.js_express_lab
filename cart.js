@@ -1,83 +1,104 @@
 const express = require('express');
+const pool = require('./connection');
 const cart = express.Router();
 
-let myCart = [
-    {id: 1, product:'GATORADE', price: 5.0, quantity: 5},
-    {id: 2, product:'POWERADE', price: 3.0, quantity: 2},
-    {id: 3, product:'Vitamin Water', price: 1.0, quantity: 1},
-    {id: 4, product:'BODYARMOR', price: 3.00, quantity: 8}
-]
-
-cart.get('/', (req, res) => {
-    res.json(myCart)
-    res.status(200);
-})
-
-cart.get('/:id', (req, res) =>{
-    let item = myCart.find((current)=>{
-        if (current.id === parseInt(req.params.id)){;
-        return current;
+function getData(filters) {
+    const defaults = {
+        limit: 10,
+        filterType:'and'
     }
-    })
-    res.json(item);
-    res.status(200);
-})
+    let myFilters = { ...defaults, ...filters}
+    let query = "select * from shopping_cart"
+    let items = [];
+    let data = [];
+    if(myFilters.id){
+        data.push(myFilters.id);
+        items.push( `id = $${data.length}::int`)
+    }
+    if (myFilters.maxPrice) {
+        data.push(myFilters.maxPrice);
+       items.push(`price <= $${data.length}::int`)
+    }
+    if (myFilters.prefix) {
+        myFilters.prefix += '%';
+        data.push(myFilters.prefix);
+        items.push(` product LIKE $${data.length}::character varying`)
+    }
+    if(items.length){
+                query += ' WHERE ' + items.join(' AND ');
+    }
+    console.log(query, data);
+    return pool.query(query, data)
+  };
 
-cart.get('/', (req, res) => {
-    let cart = [...myCart];
-    if (req.query.maxPrice) {
-        filtered = cart.filter(item => item.price <= req.query.maxPrice)
-    };
-       res.json(filtered);
-    res.sendStatus(200); 
-    
-    });
+cart.get("/", function(req, res) {
+    let array = {};
+    array.maxPrice = req.query.maxPrice;
+    array.prefix = req.query.prefix;
+    array.pageSize = req.query.pageSize;
+    getData(array).then(result=>{
+        let data = result.rows;
+        res.json(data);
+      }).catch(error=>{
+          console.log(error);
+          res.sendStatus(500);
+      });
+  });
 
-cart.post('/',(req,res)=>{
-    let item ={
-        id: myCart.length + 1,
-        product: req.body.product,
-        price: req.body.price,
-        quantity: req.body.quantity
-    
-    };
-    myCart.push(item);
-    res.json(item);
-    res.status(201);
-})
+  cart.get('/:id',(request, response)=>{
+    getData({id:request.data.id}).then(result => {
+        let data = result.rows;
+        response.json(data);
+        
+      }).catch(err=>{
+          console.log(err);
+          response.sendStatus(500);
+      });
+  });
 
-cart.put('/:id', (req, res) => {
-    if (req.body) {
-        let product = cart.find((obj) => obj.id === parseInt(req.params.id));
-        if (req.body.product) {
-            product.product = req.body.product 
+  cart.post("/", (req,res)=>{
+    if (req.body && req.body.product && req.body.price && req.body.quantity) {
+        let itemValues = [
+            req.body.product, req.body.price, req.body.quantity
+        ];
+        let item = {
+            product: itemValues[0], price: itemValues[1], quantity: itemValues[2]
         }
-        if (req.body.price) {
-            product.price = req.body.price
+        pool.query("INSERT INTO shopping_cart (product, price, quantity) VALUES ($1::text, $2::numeric, $3::numeric)", values)
+        .then(()=>{
+            res.status(201);
+            res.json(item);
         }
-        if (req.body.quantity) {
-            product.quantity = req.body.quantity
+        ).catch(error=>{
+            console.log(error);
+            res.sendStatus(500);
+        })
+    }
+});
+cart.delete("/:id", (req,res)=>{
+    pool.query("DELETE FROM shopping_cart WHERE id=$1::numeric", [req.data.id]).then(()=>{
+        res.sendStatus(204);
+        }).catch(error=>{
+            console.log(error);
+            res.sendStatus(500);
+        });
+});
+cart.put("/:id", (req,res)=>{
+    if (req.body && req.body.product && req.body.price && req.body.quantity) {
+        let values = [
+            req.data.id, req.body.product, req.body.price, req.body.quantity
+        ]
+        let item = {
+            product: values[1], price: values[2], quantity: values[3]
         }
-        res.status(200);
-        res.json(product);
-    } else {
-        res.status(404);
-        res.json('There are no products matching the submitted ID.')
+        pool.query("UPDATE shopping_cart SET product=$2::text, price=$3::numeric, quantity=$4::numeric WHERE id=$1::numeric ORDER BY id ASC", values).then(result=>{
+            res.status(200);
+            res.json(item);
+        }).catch(error=>{
+            console.log(error);
+            res.sendStatus(500);
+        });
     }
 });
 
-cart.delete('/:id', (req, res)=> {
-    const reqId = req.params.id;
-
-    let item = myCart.filter(item =>{
-        return item.id === reqId;
-    });
-    const index = myCart.indexOf(item);
-    myCart.splice(index,1);
-
-    res.json({message:`item ${reqId} deleted`});
-    res.status(204);
-
-});
-   
 module.exports = cart;
