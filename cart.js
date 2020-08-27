@@ -75,14 +75,7 @@ cart.get("/", function(req, res) {
         })
     }
 });
-cart.delete("/:id", (req,res)=>{
-    pool.query("DELETE FROM shopping_cart WHERE id=$1::numeric", [req.data.id]).then(()=>{
-        res.sendStatus(204);
-        }).catch(error=>{
-            console.log(error);
-            res.sendStatus(500);
-        });
-});
+
 cart.put("/:id", (req,res)=>{
     if (req.body && req.body.product && req.body.price && req.body.quantity) {
         let values = [
@@ -99,6 +92,14 @@ cart.put("/:id", (req,res)=>{
             res.sendStatus(500);
         });
     }
+});
+cart.delete("/:id", (req,res)=>{
+    pool.query("DELETE FROM shopping_cart WHERE id=$1::numeric", [req.data.id]).then(()=>{
+        res.sendStatus(204);
+        }).catch(error=>{
+            console.log(error);
+            res.sendStatus(500);
+        });
 });
 
 module.exports = cart;
